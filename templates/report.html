@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CloudSentinel Audit Report</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: #111827;
+            --card-border: rgba(255, 255, 255, 0.06);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            
+            --primary: #6366f1;
+            --primary-glow: rgba(99, 102, 241, 0.15);
+            
+            --critical: #ef4444;
+            --high: #f97316;
+            --medium: #eab308;
+            --low: #3b82f6;
+            --info: #6b7280;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            line-height: 1.5;
+            padding-bottom: 4rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 1.5rem;
+        }
+
+        .logo-section h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #a5b4fc 0%, #6366f1 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-section p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-top: 0.2rem;
+        }
+
+        .meta-badge {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            text-align: right;
+        }
+
+        .meta-badge strong {
+            color: var(--text-primary);
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1.5fr;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px -2px rgba(0,0,0,0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Score Card */
+        .score-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .score-gauge {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            margin: 1rem 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: radial-gradient(circle, var(--card-bg) 60%, rgba(99, 102, 241, 0.05) 100%);
+            border: 8px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .score-value {
+            font-size: 3.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .score-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: -0.5rem;
+        }
+
+        .score-rating {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-top: 0.5rem;
+        }
+
+        .rating-excellent { color: var(--success); }
+        .rating-good { color: var(--low); }
+        .rating-fair { color: var(--medium); }
+        .rating-poor { color: var(--high); }
+        .rating-critical { color: var(--critical); }
+
+        /* Severity Cards */
+        .severity-counts {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.75rem;
+            margin-top: 1rem;
+        }
+
+        .sev-box {
+            text-align: center;
+            padding: 0.75rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--card-border);
+        }
+
+        .sev-box.critical { border-color: rgba(239, 68, 68, 0.2); }
+        .sev-box.high { border-color: rgba(249, 115, 22, 0.2); }
+        .sev-box.medium { border-color: rgba(234, 179, 8, 0.2); }
+        .sev-box.low { border-color: rgba(59, 130, 246, 0.2); }
+        .sev-box.info { border-color: rgba(107, 114, 128, 0.2); }
+
+        .sev-num {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: block;
+            margin-top: 0.2rem;
+        }
+        .sev-num.critical { color: var(--critical); }
+        .sev-num.high { color: var(--high); }
+        .sev-num.medium { color: var(--medium); }
+        .sev-num.low { color: var(--low); }
+        .sev-num.info { color: var(--info); }
+
+        /* Category Breakdown */
+        .category-item {
+            margin-bottom: 0.95rem;
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.3rem;
+        }
+
+        .category-bar-bg {
+            height: 8px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .category-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s ease-in-out;
+        }
+
+        /* Chart Canvas Size */
+        .chart-container {
+            position: relative;
+            height: 180px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Filter Controls */
+        .filter-section {
+            background-color: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--card-border);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px var(--primary-glow);
+        }
+
+        .select-filter {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--card-border);
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Findings Table */
+        .table-card {
+            padding: 0;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--card-border);
+            font-size: 0.95rem;
+            vertical-align: middle;
+        }
+
+        tr.finding-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        tr.finding-row:hover {
+            background-color: rgba(255, 255, 255, 0.015);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        .badge.critical { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+        .badge.high { background: rgba(249, 115, 22, 0.15); color: #fb923c; border: 1px solid rgba(249,115,22,0.3); }
+        .badge.medium { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid rgba(234,179,8,0.3); }
+        .badge.low { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+        .badge.info { background: rgba(107, 114, 128, 0.15); color: #9ca3af; border: 1px solid rgba(107,114,128,0.3); }
+
+        .service-badge {
+            background: rgba(99, 102, 241, 0.1);
+            color: #a5b4fc;
+            padding: 0.25rem 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .cis-badge {
+            background: rgba(255,255,255,0.04);
+            color: var(--text-secondary);
+            border: 1px solid var(--card-border);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Detail Drawer */
+        .detail-row {
+            display: none;
+            background-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .detail-container {
+            padding: 1.5rem;
+            border-left: 3px solid var(--primary);
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .detail-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .detail-main h4 {
+            font-size: 1rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .detail-main p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 1.2rem;
+        }
+
+        .remediation-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .remediation-box h5 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--success);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .remediation-box code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            word-break: break-all;
+        }
+
+        .detail-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            font-size: 0.85rem;
+        }
+
+        .sidebar-item strong {
+            display: block;
+            color: var(--text-secondary);
+            margin-bottom: 0.2rem;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+
+        .sidebar-item span, .sidebar-item a {
+            color: var(--text-primary);
+            text-decoration: none;
+        }
+
+        .sidebar-item a {
+            color: var(--primary);
+        }
+
+        .sidebar-item a:hover {
+            text-decoration: underline;
+        }
+
+        .resource-text {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #cbd5e1;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            padding: 4rem 2rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .empty-state h3 {
+            color: var(--success);
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-section">
+                <h1>CloudSentinel 🛡️</h1>
+                <p>AWS Cloud Misconfiguration Scanner Report</p>
+            </div>
+            <div class="meta-badge">
+                <div>Account: <strong>{{ result.metadata.aws_account_id }}</strong></div>
+                <div>Profile: <strong>{{ result.metadata.aws_profile or 'default' }}</strong></div>
+                <div>Timestamp: <strong>{{ result.metadata.timestamp[:19].replace('T', ' ') }} UTC</strong></div>
+            </div>
+        </header>
+
+        <!-- Dashboard Widgets -->
+        <div class="dashboard-grid">
+            <!-- 1. Overall Score -->
+            <div class="card score-card">
+                <div class="card-title">Security Score</div>
+                <div class="score-gauge">
+                    <div>
+                        <div class="score-value">{{ result.overall_score }}</div>
+                        <div class="score-label">/ 100</div>
+                    </div>
+                </div>
+                {% set score = result.overall_score %}
+                {% if score >= 90 %}
+                    <div class="score-rating rating-excellent">Excellent Security</div>
+                {% elif score >= 75 %}
+                    <div class="score-rating rating-good">Good Security</div>
+                {% elif score >= 60 %}
+                    <div class="score-rating rating-fair">Fair Security</div>
+                {% elif score >= 40 %}
+                    <div class="score-rating rating-poor">Poor Security</div>
+                {% else %}
+                    <div class="score-rating rating-critical">Critical Security Risk</div>
+                {% endif %}
+            </div>
+
+            <!-- 2. Findings Summary -->
+            <div class="card">
+                <div class="card-title">Severity Breakdown</div>
+                <div class="severity-counts">
+                    <div class="sev-box critical">
+                        <span>Critical</span>
+                        <span class="sev-num critical">{{ result.severity_summary.CRITICAL }}</span>
+                    </div>
+                    <div class="sev-box high">
+                        <span>High</span>
+                        <span class="sev-num high">{{ result.severity_summary.HIGH }}</span>
+                    </div>
+                    <div class="sev-box medium">
+                        <span>Medium</span>
+                        <span class="sev-num medium">{{ result.severity_summary.MEDIUM }}</span>
+                    </div>
+                    <div class="sev-box low">
+                        <span>Low</span>
+                        <span class="sev-num low">{{ result.severity_summary.LOW }}</span>
+                    </div>
+                    <div class="sev-box info">
+                        <span>Info</span>
+                        <span class="sev-num info">{{ result.severity_summary.INFO }}</span>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 1.5rem; text-align: center;">
+                    <div class="chart-container">
+                        <canvas id="severityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Category Breakdown -->
+            <div class="card">
+                <div class="card-title">Category Audit Scores</div>
+                <div style="display: flex; flex-direction: column; justify-content: space-between; height: calc(100% - 2.5rem);">
+                    {% for cat, cat_score in result.category_scores.items() %}
+                    <div class="category-item">
+                        <div class="category-header">
+                            <span>{{ cat }}</span>
+                            <span><strong>{{ cat_score }}/100</strong></span>
+                        </div>
+                        <div class="category-bar-bg">
+                            {% set bar_color = 'var(--success)' %}
+                            {% if cat_score < 40 %}
+                                {% set bar_color = 'var(--critical)' %}
+                            {% elif cat_score < 65 %}
+                                {% set bar_color = 'var(--high)' %}
+                            {% elif cat_score < 80 %}
+                                {% set bar_color = 'var(--medium)' %}
+                            {% elif cat_score < 95 %}
+                                {% set bar_color = 'var(--low)' %}
+                            {% endif %}
+                            <div class="category-bar-fill" style="width: {{ cat_score }}%; background-color: {{ bar_color }};"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Interactive Filters -->
+        <div class="filter-section">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search by Resource, ID, Title, or Description...">
+            
+            <select id="severityFilter" class="select-filter">
+                <option value="ALL">All Severities</option>
+                <option value="CRITICAL">Critical</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
+                <option value="INFO">Info</option>
+            </select>
+
+            <select id="serviceFilter" class="select-filter">
+                <option value="ALL">All Categories</option>
+                <option value="IAM">IAM</option>
+                <option value="S3">S3</option>
+                <option value="EC2">EC2</option>
+                <option value="Network">Network</option>
+                <option value="CloudTrail">CloudTrail</option>
+                <option value="MFA">MFA</option>
+            </select>
+
+            <div style="margin-left: auto; font-size: 0.9rem; color: var(--text-secondary);">
+                Showing <strong id="visibleCount" style="color: var(--text-primary);">0</strong> of <strong>{{ result.findings|length }}</strong> findings
+            </div>
+        </div>
+
+        <!-- Table card -->
+        <div class="card table-card">
+            {% if result.findings|length > 0 %}
+            <table id="findingsTable">
+                <thead>
+                    <tr>
+                        <th style="width: 120px;">ID</th>
+                        <th style="width: 140px;">Category</th>
+                        <th style="width: 140px;">Severity</th>
+                        <th>Resource Context</th>
+                        <th>Finding Title</th>
+                        <th style="width: 120px; text-align: center;">CIS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for finding in result.findings %}
+                    <tr class="finding-row" data-severity="{{ finding.severity.value }}" data-service="{{ finding.service }}" onclick="toggleDrawer('drawer-{{ loop.index }}')">
+                        <td><strong style="color: var(--primary);">{{ finding.check_id }}</strong></td>
+                        <td><span class="service-badge">{{ finding.service }}</span></td>
+                        <td><span class="badge {{ finding.severity.value|lower }}">{{ finding.severity.value }}</span></td>
+                        <td class="resource-text">{{ finding.resource.split('/')[-1] }}</td>
+                        <td><strong>{{ finding.title }}</strong></td>
+                        <td style="text-align: center;"><span class="cis-badge">{{ finding.cis_control }}</span></td>
+                    </tr>
+                    <tr class="detail-row" id="drawer-{{ loop.index }}" data-severity="{{ finding.severity.value }}" data-service="{{ finding.service }}">
+                        <td colspan="6">
+                            <div class="detail-container">
+                                <div class="detail-main">
+                                    <h4>Description</h4>
+                                    <p>{{ finding.description }}</p>
+                                    <div class="remediation-box">
+                                        <h5>Remediation Recommendation</h5>
+                                        <code>{{ finding.recommendation }}</code>
+                                    </div>
+                                </div>
+                                <div class="detail-sidebar">
+                                    <div class="sidebar-item">
+                                        <strong>Resource ARN / Name</strong>
+                                        <span class="resource-text">{{ finding.resource }}</span>
+                                    </div>
+                                    <div class="sidebar-item">
+                                        <strong>AWS Region</strong>
+                                        <span>{{ finding.region }}</span>
+                                    </div>
+                                    <div class="sidebar-item">
+                                        <strong>Reference Link</strong>
+                                        {% if finding.reference.startswith('http') %}
+                                            <a href="{{ finding.reference }}" target="_blank">Compliance documentation &rarr;</a>
+                                        {% else %}
+                                            <span>{{ finding.reference }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <h3>No Misconfigurations Found!</h3>
+                <p>Congratulations, your AWS environment passed all 24 security checks.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Chart rendering script & Table filter script -->
+    <script>
+        // Draw Severity Doughnut Chart
+        const ctx = document.getElementById('severityChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Critical', 'High', 'Medium', 'Low', 'Info'],
+                datasets: [{
+                    data: [
+                        {{ result.severity_summary.CRITICAL }},
+                        {{ result.severity_summary.HIGH }},
+                        {{ result.severity_summary.MEDIUM }},
+                        {{ result.severity_summary.LOW }},
+                        {{ result.severity_summary.INFO }}
+                    ],
+                    backgroundColor: ['#ef4444', '#f97316', '#eab308', '#3b82f6', '#6b7280'],
+                    borderWidth: 2,
+                    borderColor: '#111827'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            color: '#9ca3af',
+                            font: {
+                                family: 'Outfit',
+                                size: 12
+                            },
+                            boxWidth: 12
+                        }
+                    }
+                },
+                cutout: '70%'
+            }
+        });
+
+        // Toggle Expandable Details Drawer
+        function toggleDrawer(id) {
+            const drawer = document.getElementById(id);
+            if (drawer.style.display === 'table-row') {
+                drawer.style.display = 'none';
+            } else {
+                // Collapse all drawers first
+                document.querySelectorAll('.detail-row').forEach(d => d.style.display = 'none');
+                drawer.style.display = 'table-row';
+            }
+        }
+
+        // Live search and filtering
+        const searchInput = document.getElementById('searchInput');
+        const severityFilter = document.getElementById('severityFilter');
+        const serviceFilter = document.getElementById('serviceFilter');
+        const table = document.getElementById('findingsTable');
+        const visibleCountEl = document.getElementById('visibleCount');
+
+        function filterTable() {
+            if (!table) return;
+            const searchVal = searchInput.value.toLowerCase();
+            const severityVal = severityFilter.value;
+            const serviceVal = serviceFilter.value;
+            
+            const rows = table.getElementsByClassName('finding-row');
+            let visibleCount = 0;
+
+            for (let i = 0; i < rows.length; i++) {
+                const row = rows[i];
+                const drawer = document.getElementById('drawer-' + (i + 1));
+                
+                const sev = row.getAttribute('data-severity');
+                const service = row.getAttribute('data-service');
+                const text = row.innerText.toLowerCase() + (drawer ? drawer.innerText.toLowerCase() : '');
+
+                const matchesSearch = text.includes(searchVal);
+                const matchesSeverity = (severityVal === 'ALL' || sev === severityVal);
+                const matchesService = (serviceVal === 'ALL' || service === serviceVal);
+
+                if (matchesSearch && matchesSeverity && matchesService) {
+                    row.style.display = '';
+                    visibleCount++;
+                } else {
+                    row.style.display = 'none';
+                    if (drawer) drawer.style.display = 'none';
+                }
+            }
+            visibleCountEl.innerText = visibleCount;
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('input', filterTable);
+            severityFilter.addEventListener('change', filterTable);
+            serviceFilter.addEventListener('change', filterTable);
+            // Run initially
+            filterTable();
+        }
+    </script>
+</body>
+</html>
